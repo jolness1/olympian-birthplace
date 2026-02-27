@@ -29,12 +29,39 @@ def parse_born(born_str: str):
     return None, None
 
 
-# load bios.csv
+# load bios.csv and 2024-2026-us-bios.csv, merging and deduplicating by athlete_id
 
-with open(os.path.join(INPUT_DIR, "bios.csv"), encoding="utf-8", newline="") as f:
-    reader = csv.DictReader(f)
-    fieldnames = reader.fieldnames
-    athletes = list(reader)
+def load_bios(path: str) -> tuple[list, list[str]]:
+    with open(path, encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    return rows, fieldnames
+
+
+bios_rows, fieldnames = load_bios(os.path.join(INPUT_DIR, "bios.csv"))
+
+new_bios_path = os.path.join(INPUT_DIR, "2024-2026-us-bios.csv")
+if os.path.exists(new_bios_path):
+    new_rows, new_fields = load_bios(new_bios_path)
+    # merge fieldnames (preserve order, append any new columns)
+    for col in new_fields:
+        if col not in fieldnames:
+            fieldnames.append(col)
+    # deduplicate: index existing rows by athlete_id, then add new ones not yet seen
+    seen_ids: set[str] = {str(r.get("athlete_id", "")) for r in bios_rows}
+    added = 0
+    for row in new_rows:
+        aid = str(row.get("athlete_id", ""))
+        if aid and aid not in seen_ids:
+            bios_rows.append(row)
+            seen_ids.add(aid)
+            added += 1
+    print(f"Loaded {new_bios_path}: {len(new_rows)} rows, {added} new athletes merged.")
+else:
+    print(f"[INFO] {new_bios_path} not found – using bios.csv only.")
+
+athletes = bios_rows
 
 # categorize athletes
 
